@@ -1,0 +1,81 @@
+select *
+from   asset_basic_info
+
+
+create table asset_cost_info
+(a int)
+
+create table asset_area_info
+(a int)
+
+create table asset_auction_info
+(도로명주소 text)
+
+select A.분양형태, A.동수, A.세대수, A.분양세대수 ,A.관리방식 , A.난방방식 , A.복도유형 ,A.시공사 , A.시행사 ,
+       A.일반관리_관리방식, A.일반관리_인원 , A.경비관리_관리방식 , A.경비관리_인원 , A.경비관리_계약업체 ,
+       A.청소관리_관리방식, A.청소관리_인원 , A.음식물_처리방법, A.소독관리_관리방식, A.연간소독횟수,
+       A.건물구조, A.전기_수전용량, A.전기_세대전기계약방식, A.전기안전관리자선임여부, A.화재수신반방식,
+       A.급수방식, A.승강기관리형태, A.승강기_승객용, A.승강기_화물용, A.승강기_승객_화물, A.승강기_장애우,
+       A.승강기_비상용, A.승강기_기타, A.총주차대수, A.지상주차대수, A.지하주차대수, A.CCTV대수,
+       A.주차관제_홈네트워크,A.최고층수, A.최고층수_건축물대장상, A.지하층수,
+       B.공용관리비계,B.인건비,B.제사무비,B.제세공과금,B.피복비,B.교육훈련비, B.차량유지비, B.그밖의부대비용,
+       B.청소비,B.경비비,B.소독비,B.승강기유지비,B.지능형네트워크유지비,B.수선비,B.시설유지비,B.안전점검비,
+       B.재해예방비,B.위탁관리수수료,B.개별사용료계,B.난방비_공용,B.난방비_전용,B.급탕비_공용,B.급탕비_전용,
+       B.가스사용료_공용,B.가스사용료_전용,B.전기료_공용,B.전기료_전용,B.수도료_공용,B.수도료_전용,
+       B.정화조오물수수료,B.생활폐기물수수료,B.입대의운영비,B.건물보험료,B.선관위운영비,B.장충금_월부과액,
+       B.장충금_월사용액,B.장충금_총적립금액,B.장충금_적립율,B.잡수익_월수입금액,
+       C.연면적, C.관리비부과면적,C.주거전용면적,C.건축물대장연면적 ,A.auction_yn
+from   asset_basic_info A left outer join asset_cost_info B
+       on   A.시도 = B.시도
+       and  A.시군구 = B.시군구
+       and  A.읍면  = B.읍면
+       and  A.동리  = B.동리
+       and  A.단지코드  = B.단지코드
+       left outer join asset_area_info C
+       on A.시도  = C.시도
+       and A.시군구  = C.시군구
+       and A.읍면  = C.읍면
+       and A.동리  = C.동리
+       and A.단지코드  = C.단지코드
+     
+alter table asset_basic_info add index basic_index(시도,시군구,읍면,동리,단지코드)
+alter table asset_cost_info add index cost_index(시도,시군구,읍면,동리,단지코드)
+alter table asset_area_info add index area_index(시도,시군구,읍면,동리,단지코드)
+
+select distinct A.도로명주소  , D.도로명주소
+from   asset_basic_info A left outer join asset_cost_info B
+       on   A.시도 = B.시도
+       and  A.시군구 = B.시군구
+       and  A.읍면  = B.읍면
+       and  A.동리  = B.동리
+       and  A.단지코드  = B.단지코드
+       left outer join asset_area_info C
+       on A.시도  = C.시도
+       and A.시군구  = C.시군구
+       and A.읍면  = C.읍면
+       and A.동리  = C.동리
+       and A.단지코드  = C.단지코드 ,
+       asset_auction_info D
+where replace(A.도로명주소,'  ',' ') like concat('%',replace(D.도로명주소,'  ',' '),'%')
+
+delete from asset_auction_info 
+
+
+
+alter table asset_basic_info add column auction_yn int default 0
+
+update asset_basic_info A
+set auction_yn = 1
+where exists(
+   select *
+   from asset_auction_info D
+   where A.도로명주소 like concat('%',replace(D.도로명주소,'  ',' '),'%')
+)
+
+
+select *
+from asset_basic_info 
+where auction_yn = 1
+
+select *
+from asset_basic_info abi 
