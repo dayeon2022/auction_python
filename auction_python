@@ -1,0 +1,315 @@
+import requests
+from bs4 import BeautifulSoup
+import pymysql
+import re
+db = pymysql.connect(
+    user='root',
+    passwd='password',
+    host='localhost',
+    db='asset',
+    charset='utf8'
+)
+url = "https://www.courtauction.go.kr/RetrieveRealEstMulDetailList.laf"
+params = {}
+params['bubwLocGubun']='1'
+params['jiwonNm']=''
+params['jpDeptCd']='000000'
+params['daepyoSidoCd']=''
+params['daepyoSiguCd']=''
+params['daepyoDongCd']=''
+params['notifyLoc']='on'
+params['rd1Cd']=''
+params['rd2Cd']=''
+params['realVowel']='35207_45207'
+params['rd3Rd4Cd']=''
+params['notifyRealRoad']='on'
+params['saYear']='2023'
+params['saSer']=''
+params['ipchalGbncd']='000331'
+params['termStartDt']='2023.07.08'
+params['termEndDt']='2023.07.22'
+params['lclsUtilCd']='0000802'
+params['mclsUtilCd']='000080201'
+params['sclsUtilCd']='00008020104'
+params['gamEvalAmtGuganMin']=''
+params['gamEvalAmtGuganMax']=''
+params['notifyMinMgakPrcMin']=''
+params['notifyMinMgakPrcMax']=''
+params['areaGuganMin']=''
+params['areaGuganMax']=''
+params['yuchalCntGuganMin']=''
+params['yuchalCntGuganMax']=''
+params['notifyMinMgakPrcRateMin']=''
+params['notifyMinMgakPrcRateMax']=''
+params['srchJogKindcd']=''
+params['mvRealGbncd']='00031R'
+params['srnID']='PNO102001'
+params['_NAVI_CMD']=''
+params['_NAVI_SRNID']=''
+params['_SRCH_SRNID']='PNO102001'
+params['_CUR_CMD']='InitMulSrch.laf'
+params['_CUR_SRNID']='PNO102001'
+params['_NEXT_CMD']='RetrieveRealEstMulDetailList.laf'
+params['_NEXT_SRNID']='PNO102002'
+params['_PRE_SRNID']=''
+params['_LOGOUT_CHK']=''
+params['_FORM_YN']='Y'
+params['page']='default20'
+params['pageSpec']='default20'
+for i in range(21 , 1341, 20):
+    print(f'#### upload data until {str(i)}')
+    params['targetRow']= str(i)
+    res = requests.post(url=url, params=params)
+    # print(res.text)
+    soup = BeautifulSoup(res.text,"html.parser")
+    total_count_tag = soup.select('.txtblue')
+    repeat_count = 0
+    if len(total_count_tag) > 0 :
+        # print(total_count_tag[0])
+        total_count = re.sub(r'[^0-9]', '', total_count_tag[0].text)
+        # print(total_count)
+        repeat_count = int(total_count)/20
+        # print(repeat_count)
+    list = soup.select('.Ltbl_list_lvl0')
+    list2 = soup.select('.Ltbl_list_lvl1')
+    list = list + list2
+    insert_sql = "INSERT INTO `asset_auction_info`(도로명주소) VALUES (%s);"
+    cursor = db.cursor(pymysql.cursors.DictCursor)
+    for row in list:
+        # print('#################')
+        address = row.select('.tbl_btm_noline')
+        address2 = row.select('.tbl_btm_line')
+        address = address + address2
+        insert_data = [[address[0].select('a')[0].text.strip().split(',')[0].replace('  ',' ')]]
+        cursor.executemany(insert_sql, insert_data)
+        db.commit()
+        # print('#################')
+db.close()
+
+
+
+
+
+
+
+
+
+
+
+import pyodbc
+import pandas as pd
+import pymysql
+
+db = pymysql.connect(
+    user='root',
+    passwd='password',
+    host='localhost',
+    db='asset',
+    charset='utf8'
+)
+select_sql = '''
+select A.분양형태, A.동수, A.세대수, A.분양세대수 ,A.관리방식 , A.난방방식 , A.복도유형 ,A.시공사 , A.시행사 ,
+       A.일반관리_관리방식, A.일반관리_인원 , A.경비관리_관리방식 , A.경비관리_인원 , A.경비관리_계약업체 ,
+       A.청소관리_관리방식, A.청소관리_인원 , A.음식물_처리방법, A.소독관리_관리방식, A.연간소독횟수,
+       A.건물구조, A.전기_수전용량, A.전기_세대전기계약방식, A.전기안전관리자선임여부, A.화재수신반방식,
+       A.급수방식, A.승강기관리형태, A.승강기_승객용, A.승강기_화물용, A.승강기_승객_화물, A.승강기_장애우,
+       A.승강기_비상용, A.승강기_기타, A.총주차대수, A.지상주차대수, A.지하주차대수, A.CCTV대수,
+       A.주차관제_홈네트워크,A.최고층수, A.최고층수_건축물대장상, A.지하층수,
+       B.공용관리비계,B.인건비,B.제사무비,B.제세공과금,B.피복비,B.교육훈련비, B.차량유지비, B.그밖의부대비용,
+       B.청소비,B.경비비,B.소독비,B.승강기유지비,B.지능형네트워크유지비,B.수선비,B.시설유지비,B.안전점검비,
+       B.재해예방비,B.위탁관리수수료,B.개별사용료계,B.난방비_공용,B.난방비_전용,B.급탕비_공용,B.급탕비_전용,
+       B.가스사용료_공용,B.가스사용료_전용,B.전기료_공용,B.전기료_전용,B.수도료_공용,B.수도료_전용,
+       B.정화조오물수수료,B.생활폐기물수수료,B.입대의운영비,B.건물보험료,B.선관위운영비,B.장충금_월부과액,
+       B.장충금_월사용액,B.장충금_총적립금액,B.장충금_적립율,B.잡수익_월수입금액,
+       C.연면적, C.관리비부과면적,C.주거전용면적,C.건축물대장연면적 ,A.auction_yn
+from   asset_basic_info A left outer join asset_cost_info B
+       on   A.시도 = B.시도
+       and  A.시군구 = B.시군구
+       and  A.읍면  = B.읍면
+       and  A.동리  = B.동리
+       and  A.단지코드  = B.단지코드
+       left outer join asset_area_info C
+       on A.시도  = C.시도
+       and A.시군구  = C.시군구
+       and A.읍면  = C.읍면
+       and A.동리  = C.동리
+       and A.단지코드  = C.단지코드
+
+'''
+cursor = db.cursor(pymysql.cursors.DictCursor)
+cursor.execute(select_sql)
+
+result = cursor.fetchall()
+my_df = pd.DataFrame(result)
+db.close()
+
+print(my_df.head())
+
+
+samples = my_df.dropna(axis=0)
+Y= samples['auction_yn']
+X= samples.drop('auction_yn', axis = 1)
+print(y.head())
+print(X.head())
+
+import matplotlib.pyplot as plt
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.tree import plot_tree
+clf = DecisionTreeClassifier(
+            criterion='entropy', ## 'gini', 'log_loss'
+            splitter='best', ## 'random'
+            max_depth=10, ## '최대 깊이'
+            min_samples_leaf=5, ## 최소 끝마디 샘플 수
+            random_state=100
+        ).fit(X,Y)
+
+
+X= X.drop(['건물구조'], axis = 1)
+X.loc[X['분양형태'] == '분양','분양형태1'] = 1
+X.loc[X['분양형태'] != '분양','분양형태1'] = 0
+X = X.drop('분양형태', axis=1)
+X.rename(columns = {'분양형태1':'분양형태'}, inplace=True)
+X.head()
+X.groupby('관리방식')['관리방식'].describe()
+X.loc[X['관리방식'] == '관리방식미정','관리방식1'] = 1
+X.loc[X['관리방식'] == '기타','관리방식1'] = 2
+X.loc[X['관리방식'] == '위탁관리','관리방식1'] = 3
+X.loc[X['관리방식'] == '위탁관리(직영+위탁)','관리방식1'] = 4
+X.loc[X['관리방식'] == '위탁관리(총액관리제)','관리방식1'] = 5
+X.loc[X['관리방식'] == '자치관리','관리방식1'] = 6
+X.loc[X['관리방식'] == '자치관리(직영)','관리방식1'] = 7
+X = X.drop('관리방식', axis=1)
+X.rename(columns = {'관리방식1':'관리방식'}, inplace=True)
+X.head()
+X.groupby('난방방식')['난방방식'].describe()
+X.loc[X['난방방식'] == '개별난방','난방방식1'] = 1
+X.loc[X['난방방식'] == '개별난방+기타','난방방식1'] = 2
+X.loc[X['난방방식'] == '기타','난방방식1'] = 3
+X.loc[X['난방방식'] == '중앙난방','난방방식1'] = 4
+X.loc[X['난방방식'] == '지역난방','난방방식1'] = 5
+X = X.drop('난방방식', axis=1)
+X.rename(columns = {'난방방식1':'난방방식'}, inplace=True)
+X.head()
+X.groupby('시행사')['시행사'].describe()
+X.groupby('시공사')['시공사'].describe()
+X.groupby('복도유형')['복도유형'].describe()
+X.loc[X['복도유형'] == '계단식','복도유형1'] = 1
+X.loc[X['복도유형'] == '복도식','복도유형1'] = 2
+X.loc[X['복도유형'] == '타워형','복도유형1'] = 3
+X.loc[X['복도유형'] == '혼합식','복도유형1'] = 4
+X = X.drop('복도유형', axis=1)
+X.rename(columns = {'복도유형1':'복도유형'}, inplace=True)
+X.head()
+X= X.drop(['시공사','시행사'], axis = 1)
+X
+X= X.drop(['경비관리_계약업체'], axis = 1)
+X
+X.groupby('일반관리_관리방식')['일반관리_관리방식'].describe()
+X.groupby('일반관리_관리방식')['일반관리_관리방식'].describe()
+X.loc[X['일반관리_관리방식'] == '관리방식미정','일반관리_관리방식1'] = 1
+X.loc[X['일반관리_관리방식'] == '기타','일반관리_관리방식1'] = 2
+X.loc[X['일반관리_관리방식'] == '위탁관리','일반관리_관리방식1'] = 3
+X.loc[X['일반관리_관리방식'] == '위탁관리(직영+위탁)','일반관리_관리방식1'] = 4
+X.loc[X['일반관리_관리방식'] == '위탁관리(총액관리제)','일반관리_관리방식1'] = 5
+X.loc[X['일반관리_관리방식'] == '자치관리','일반관리_관리방식1'] = 6
+X.loc[X['일반관리_관리방식'] == '자치관리(직영)','일반관리_관리방식1'] = 7
+X = X.drop('일반관리_관리방식', axis=1)
+X.rename(columns = {'일반관리_관리방식1':'일반관리_관리방식'}, inplace=True)
+X.head()
+X.groupby('경비관리_관리방식')['경비관리_관리방식'].describe()
+X.loc[X['경비관리_관리방식'] == '','경비관리_관리방식1'] = 0
+X.loc[X['경비관리_관리방식'] == '관리방식미정','경비관리_관리방식1'] = 1
+X.loc[X['경비관리_관리방식'] == '위탁관리','경비관리_관리방식1'] = 2
+X.loc[X['경비관리_관리방식'] == '위탁관리(직영+위탁)','경비관리_관리방식1'] = 3
+X.loc[X['경비관리_관리방식'] == '자치관리','경비관리_관리방식1'] = 4
+X.loc[X['경비관리_관리방식'] == '자치관리(직영)','경비관리_관리방식1'] = 5
+X = X.drop('경비관리_관리방식', axis=1)
+X.rename(columns = {'경비관리_관리방식1':'경비관리_관리방식'}, inplace=True)
+X.head()
+X.groupby('청소관리_관리방식')['청소관리_관리방식'].describe()
+X.loc[X['청소관리_관리방식'] == '','청소관리_관리방식1'] = 0
+X.loc[X['청소관리_관리방식'] == '관리방식미정','청소관리_관리방식1'] = 1
+X.loc[X['청소관리_관리방식'] == '위탁관리','청소관리_관리방식1'] = 2
+X.loc[X['청소관리_관리방식'] == '위탁관리(직영+위탁)','청소관리_관리방식1'] = 3
+X.loc[X['청소관리_관리방식'] == '자치관리','청소관리_관리방식1'] = 4
+X.loc[X['청소관리_관리방식'] == '자치관리(직영)','청소관리_관리방식1'] = 5
+X = X.drop('청소관리_관리방식', axis=1)
+X.rename(columns = {'청소관리_관리방식1':'청소관리_관리방식'}, inplace=True)
+X.head()
+X.groupby('음식물_처리방법')['음식물_처리방법'].describe()
+X.loc[X['음식물_처리방법'] == '','음식물_처리방법1'] = 0
+X.loc[X['음식물_처리방법'] == '거점장비수거방식','음식물_처리방법1'] = 1
+X.loc[X['음식물_처리방법'] == '기타','음식물_처리방법1'] = 2
+X.loc[X['음식물_처리방법'] == '음식물쓰레기종량제','음식물_처리방법1'] = 3
+X.loc[X['음식물_처리방법'] == '차량수거방식','음식물_처리방법1'] = 4
+X = X.drop('음식물_처리방법', axis=1)
+X.rename(columns = {'음식물_처리방법1':'음식물_처리방법'}, inplace=True)
+X.head()
+X.groupby('소독관리_관리방식')['소독관리_관리방식'].describe()
+X.loc[X['소독관리_관리방식'] == '','소독관리_관리방식1'] = 0
+X.loc[X['소독관리_관리방식'] == '관리방식미정','소독관리_관리방식1'] = 1
+X.loc[X['소독관리_관리방식'] == '위탁관리','소독관리_관리방식1'] = 2
+X.loc[X['소독관리_관리방식'] == '위탁관리(직영+위탁)','소독관리_관리방식1'] = 3
+X.loc[X['소독관리_관리방식'] == '자치관리','소독관리_관리방식1'] = 4
+X.loc[X['소독관리_관리방식'] == '자치관리(직영)','소독관리_관리방식1'] = 5
+X = X.drop('소독관리_관리방식', axis=1)
+X.rename(columns = {'소독관리_관리방식1':'소독관리_관리방식'}, inplace=True)
+X.head()
+X =X.drop(['전기_세대전기계약방식', '전기안전관리자선임여부', '화재수신반방식'], axis = 1)
+X.groupby('급수방식')['급수방식'].describe()
+X.loc[X['급수방식'] == '','급수방식1'] = 0
+X.loc[X['급수방식'] == '고가수조식','급수방식1'] = 1
+X.loc[X['급수방식'] == '기타','급수방식1'] = 2
+X.loc[X['급수방식'] == '부스타방식','급수방식1'] = 3
+X.loc[X['급수방식'] == '수도직결식','급수방식1'] = 4
+X.loc[X['급수방식'] == '압력탱크식','급수방식1'] = 5
+X = X.drop('급수방식', axis=1)
+X.rename(columns = {'급수방식1':'급수방식'}, inplace=True)
+X.head()
+X.groupby('승강기관리형태')['승강기관리형태'].describe()
+X.loc[X['승강기관리형태'] == '','승강기관리형태1'] = 0
+X.loc[X['승강기관리형태'] == '관리방식미정','승강기관리형태1'] = 0
+X.loc[X['승강기관리형태'] == '위탁관리','승강기관리형태1'] = 0
+X.loc[X['승강기관리형태'] == '위탁관리(직영+위탁)','승강기관리형태1'] = 0
+X.loc[X['승강기관리형태'] == '자치관리','승강기관리형태1'] = 0
+X.loc[X['승강기관리형태'] == '자치관리(직영)','승강기관리형태1'] = 0
+X = X.drop('승강기관리형태', axis=1)
+X.rename(columns = {'승강기관리형태1':'승강기관리형태'}, inplace=True)
+X.head()
+X.groupby('주차관제_홈네트워크')['주차관제_홈네트워크'].describe()
+X.loc[X['주차관제_홈네트워크'] == '','주차관제_홈네트워크'] = 0
+X.loc[X['주차관제_홈네트워크'] == '무','주차관제_홈네트워크'] = 1
+X.loc[X['주차관제_홈네트워크'] == '유','주차관제_홈네트워크'] = 2
+X = X.drop('주차관제_홈네트워크', axis=1)
+X.rename(columns = {'주차관제_홈네트워크1':'주차관제_홈네트워크'}, inplace=True)
+X.head()
+
+X = X.drop(['분양형태', '복도유형'], axis = 1)
+
+
+import matplotlib.pyplot as plt
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.tree import plot_tree
+clf = DecisionTreeClassifier(
+            criterion='entropy', ## 'gini', 'log_loss'
+            splitter='best', ## 'random'
+            max_depth=6, ## '최대 깊이'
+            min_samples_leaf=5, ## 최소 끝마디 샘플 수
+            random_state=100
+        ).fit(X,Y)
+print(clf.predict(X)[:3])
+for i, col in enumerate(X.columns):
+    print(f'{col} 중요도 : {clf.feature_importances_[i]}')
+print(clf.get_params()) ## DecisionTreeClassifier 클래스 인자 설정 정보
+print('정확도 : ', clf.score(X,Y)) ## 성능 평가 점수(정확도 Accuracy)
+import os
+if os.name == 'posix':
+    plt.rc("font", family="AppleGothic")
+else:
+    plt.rc("font", family="Malgun Gothic")
+fig = plt.figure(figsize=(15, 10), facecolor='white')
+plot_tree(clf,
+          feature_names=X.columns, ## 박스에 변수 이름 표시
+          class_names=['경매아님','경매'], ## 클래스 이름(범주 이름)
+         )
+plt.show()
